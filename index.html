@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>OSM → Minecraft Editor</title>
+  <meta name="description" content="Upload any OpenStreetMap .osm file, edit buildings/ground/roads, preview in 3D, export patched OSM for Arnis.">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<div id="app">
+
+  <!-- ── HEADER ─────────────────────────────────────────────────── -->
+  <div id="header">
+    <div id="logo">OSM→MC EDITOR</div>
+
+    <div id="file-info">
+      <span id="file-name-display" style="color:var(--text3)">No file loaded</span>
+      <span id="file-stats"></span>
+    </div>
+
+    <label class="header-btn primary" title="Upload .osm file" id="upload-btn" style="cursor:pointer">
+      ↑ Upload .osm
+    </label>
+    <input type="file" id="file-input" accept=".osm,.xml">
+
+    <label class="header-btn" title="Load session .json" style="cursor:pointer">
+      ↑ Session
+      <input type="file" id="session-input" accept=".json">
+    </label>
+
+    <button class="header-btn" id="view-toggle" title="Toggle 2D/3D view (Tab)">3D View</button>
+  </div>
+
+  <!-- ── TOOLBAR ────────────────────────────────────────────────── -->
+  <div id="toolbar">
+    <!-- Populated by ui.js -->
+  </div>
+
+  <!-- ── BODY ───────────────────────────────────────────────────── -->
+  <div style="display:flex;flex:1;overflow:hidden">
+
+    <!-- DROP ZONE (shown before file load) -->
+    <div id="drop-zone" style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px">
+      <div class="drop-icon">🗺</div>
+      <div class="drop-title">Drop your .osm file here</div>
+      <div class="drop-sub">Export from openstreetmap.org → share → format: OSM XML</div>
+      <label class="drop-btn" style="cursor:pointer">
+        Or click to upload
+        <input type="file" id="file-input-drop" accept=".osm,.xml" style="display:none">
+      </label>
+      <div style="font-size:11px;color:var(--text3);margin-top:4px">
+        Previous sessions auto-restore if available
+      </div>
+    </div>
+
+    <!-- MAIN LAYOUT (shown after file load) -->
+    <div id="main-layout" style="flex:1;display:none;overflow:hidden">
+
+      <!-- CANVAS AREA -->
+      <div id="canvas-area" style="flex:1;position:relative;overflow:hidden">
+        <div id="canvas-2d-wrap" style="position:absolute;inset:0">
+          <canvas id="canvas-2d"></canvas>
+        </div>
+        <div id="canvas-3d-wrap" style="position:absolute;inset:0;display:none">
+          <canvas id="canvas-3d"></canvas>
+          <div id="fly-hint" style="position:absolute;bottom:8px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,.6);color:rgba(255,255,255,.5);font-size:10px;padding:4px 10px;border-radius:12px;pointer-events:none;font-family:var(--font-mono)">
+            Click to capture mouse · WASD move · Space/Shift up/down · Esc release
+          </div>
+        </div>
+        <div id="tooltip"></div>
+      </div>
+
+      <!-- SIDEBAR -->
+      <div id="sidebar">
+        <div id="sb-tabs">
+          <!-- Populated by ui.js -->
+        </div>
+        <div id="sb-body">
+          <!-- Populated by ui.js -->
+        </div>
+      </div>
+
+    </div><!-- /#main-layout -->
+
+  </div><!-- body flex -->
+
+  <!-- ── STATUS BAR ────────────────────────────────────────────── -->
+  <div id="statusbar">
+    <div id="status-msg">Loading…</div>
+    <div id="status-counts"></div>
+    <div id="coords-display">X:0  Z:0</div>
+  </div>
+
+</div><!-- /#app -->
+
+<!-- Drop overlay -->
+<div id="drop-overlay"></div>
+
+<!-- Three.js from CDN — load before modules -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+  // Signal that Three.js is ready
+  window.dispatchEvent(new Event('three-ready'));
+</script>
+
+<!-- Application modules (ES modules) -->
+<script type="module" src="src/main.js"></script>
+
+<!-- Drag body class for drop overlay -->
+<script>
+  let _dragCount = 0;
+  document.addEventListener('dragenter', () => { _dragCount++; document.body.classList.add('dragging'); });
+  document.addEventListener('dragleave', () => { _dragCount--; if (_dragCount <= 0) { _dragCount=0; document.body.classList.remove('dragging'); } });
+  document.addEventListener('drop', () => { _dragCount=0; document.body.classList.remove('dragging'); });
+
+  // Second file-input-drop binding
+  document.getElementById('file-input-drop')?.addEventListener('change', e => {
+    if (e.target.files[0]) {
+      // Trigger same loader as main file input
+      const ev = new Event('change');
+      Object.defineProperty(ev, 'target', { writable: false, value: e.target });
+      document.getElementById('file-input')?.dispatchEvent(ev);
+    }
+  });
+
+  // Session input in header
+  document.getElementById('session-input')?.addEventListener('change', async e => {
+    const file = e.target.files[0];
+    if (!file) return;
+    // Dynamically import to avoid loading before modules ready
+    const { importSessionJSON } = await import('./src/session.js');
+    try { await importSessionJSON(file); }
+    catch (err) { console.error(err); }
+  });
+</script>
+
+</body>
+</html>
